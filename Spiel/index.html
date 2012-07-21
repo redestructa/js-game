@@ -1,0 +1,455 @@
+<html>
+<head>
+<script>
+
+var canvas,context;
+var brickWidth  = 50;
+var brickHeight = 20;
+var marginX = 2;
+var marginY = 2;
+var dingInc=0;
+var dingPos=new Array(50,500,100,20);
+var merkKey;
+var ballPos=new Array(100,400);
+var ballRadius = 10;
+var ball_x = 4;
+var ball_y = -4;
+var bricks = new Array();
+var alwaysHit = true;
+
+var punktzahl = 0;
+var highscore = 0;
+
+window.requestAnimFrame = (function(callback) {
+        return window.requestAnimationFrame || 
+        window.webkitRequestAnimationFrame || 
+        window.mozRequestAnimationFrame || 
+        window.oRequestAnimationFrame || 
+        window.msRequestAnimationFrame ||
+        function(callback) {
+          window.setTimeout(callback, 1000 / 60);
+        };
+})();
+
+function animate() {
+
+        context.clearRect(0, 0, canvas.width, canvas.height);
+		
+		
+	
+		paintBricks()
+		
+		paintDing()
+		
+		paintBall()
+
+		testCollision()
+		
+		requestAnimFrame(function() {
+          animate();
+        });
+		
+}
+
+function Brick (type, x, y){
+var color, punktzahl;
+
+switch (type){
+case 0 : color = "#000"; punktzahl=100;break;
+case 1 : color = "#f00"; punktzahl=200;break;
+case 2 : color = "#0f0"; punktzahl=500;break;
+case 3 : color = "#0ff"; punktzahl=1000;
+}
+
+return new Object({
+	color : color,
+	x : x,
+	y : y,
+	punktzahl : punktzahl
+});
+}
+
+function getAnyBrick(){
+
+		var someBrick1=Math.floor(Math.random() * 10);
+		var someBrick2=Math.floor(Math.random() * 10);
+		
+		if (bricks[someBrick1][someBrick2]) return bricks[someBrick1][someBrick2];
+		else return getAnyBrick();
+}
+
+function paintBall(){
+
+	ballPos[0]+=ball_x;
+	ballPos[1]+=ball_y;
+	
+	var r = ballRadius;
+	var x = ballPos[0];
+	var y = ballPos[1];
+
+	if ((x+r)>=canvas.width) ball_x*=-1;
+	else if ((x-r)<=0) ball_x*=-1;
+	if (((y+r)>=dingPos[1] 
+		&& (y+r)<=(dingPos[1]+5) 
+		&& x>=dingPos[0] 
+		&& x<=dingPos[0]+dingPos[2])){
+		if (alwaysHit){
+		
+
+		var anyBrick = getAnyBrick();
+
+		
+		var richtung1 = (anyBrick.x+25) - ballPos[0];
+		var richtung2 = (anyBrick.y+10) - ballPos[1];
+				
+		ball_y = -richtung2/richtung2*5;
+		ball_x = -richtung1/richtung2*5;
+		
+		}
+		else ball_y*=-1;
+		}
+	else if ((y-r)<=0) ball_y*=-1;
+	else if ((y+r) >= canvas.height){
+	ballPos[0]=50;
+	ballPos[1]=400;
+	ball_x*=-1;
+	ball_y*=-1;
+	}
+	
+	
+	context.beginPath();
+	context.fillStyle="#3a8";
+	context.arc(x,y,r,0,Math.PI*2,true);
+	context.closePath();
+	context.fill();
+	
+	
+}
+
+function paintBrick(brick){
+	
+	var x=brick.x;
+	var color=brick.color;
+	var y=brick.y;
+
+	context.beginPath();
+	context.lineWidth=1;
+	context.moveTo(x,y)
+	context.lineTo(x+50,y)
+	context.lineTo(x+50,y+20)
+	context.lineTo(x,y+20)
+	context.lineTo(x,y)
+	context.fillStyle=color;
+	context.stroke();
+	context.fill();
+	
+}
+
+function paintDing(){
+	dingPos[0]+=2*dingInc;
+	var x=dingPos[0];
+	var y=dingPos[1];
+	var w=dingPos[2];
+	var h=dingPos[3];
+	context.beginPath();
+	context.lineWidth=1;
+	context.moveTo(x,y)
+	context.lineTo(x+w,y)
+	context.lineTo(x+w,y+h)
+	context.lineTo(x,y+h)
+	context.lineTo(x,y)
+	context.fillStyle="#000";
+	context.stroke();
+	context.fill();
+}
+
+function r(){
+var r = Math.floor(Math.random()*16);
+switch (r){
+case 10: r="a";break;
+case 11: r="b";break;
+case 12: r="c";break;
+case 13: r="d";break;
+case 14: r="e";break;
+case 15: r="f";break;
+}
+return r;
+}
+
+function eachBrick(func){
+	for (var i = 0; i< 10; i++){
+		for (var f = 0; f< 10; f++){
+		  if (bricks[i][f])
+		  func(bricks[i][f]);		  
+		}
+	}
+}
+
+function paintBricks(){
+
+	eachBrick(function(brick){
+		paintBrick(brick);
+	});
+}
+
+function testCollision(func){
+	for (var i = 0; i< 10; i++){
+		for (var f = 0; f< 10; f++){
+			if (bricks[i][f]){ 
+			
+			var bx,by,cx,cy;
+			
+			if ( ball_x<0 ) {bx=ballPos[0]-ballRadius;   by=ballPos[1] }
+			if ( ball_x>0 ) {bx=ballPos[0]+ballRadius-1; by=ballPos[1] }
+			if ( ball_y<0 ) {cx=ballPos[0]; cy=ballPos[1]-ballRadius+1 }
+			if ( ball_y>0 ) {cx=ballPos[0]; cy=ballPos[1]+ballRadius-1 }
+			
+			var s = 0;
+			
+			if((bricks[i][f].x <= bx && bx <= bricks[i][f].x+50)
+			 &&(bricks[i][f].y <= by && by <= bricks[i][f].y+20))
+			{
+			 ball_x*= -0.9-(Math.random()/5);
+			 s++;
+			}
+			if((bricks[i][f].x <= cx && cx <= bricks[i][f].x+50)
+			 &&(bricks[i][f].y <= cy && cy <= bricks[i][f].y+20))
+			{
+			 ball_y*= -0.9-(Math.random()/5);
+			 s++;
+			}
+			if (s>0) {
+				punktzahl += bricks[i][f].punktzahl;
+				document.getElementById('lblScore').innerHTML = punktzahl;
+				
+				if(punktzahl > highscore)
+					setHighscore(punktzahl);
+				
+				bricks[i][f]=null;
+				break;
+			}
+			/*
+			context.beginPath();
+			context.fillStyle="#000";
+			context.rect(bx,by,1,1);
+			context.rect(cx,cy,1,1);
+			context.closePath();
+			context.fill();*/
+			
+			
+			
+			}				
+		}
+	}
+}
+
+function setHighscore(punkte) {
+	highscore = punkte;
+	localStorage.setItem('highscore', punkte);
+	
+	document.getElementById('lblHighscore').innerHTML = punkte;
+}
+
+function getHighscore() {
+	return localStorage.getItem('highscore');
+}
+
+function punktEquals(punkt1,punkt2){
+return (punkt1.x == punkt2.x && punkt1.y == punkt2.y)
+}
+
+
+function minAbstand(punkt, punktArray){
+	
+	var min = 999999,m;
+	
+	for (key in punktArray){
+	min = ( (m=abstand(punkt,punktArray[key])) > min ) ? min : m;
+	}
+	
+	for (key in punktArray){
+	if (abstand(punkt,punktArray[key]) == min)
+	return punktArray[key];
+	}
+	
+}
+
+
+
+function abstand(punkt1,punkt2){
+return Math.sqrt(  Math.pow((punkt1.x-punkt2.x),2) + Math.pow((punkt1.y-punkt2.y),2) )
+}
+
+
+function genBricks(){
+	for (var i = 0; i< 10; i++){
+		for (var f = 0; f< 10; f++){
+		 if (f==0) bricks[i]=new Array();
+		 if (f%2==0) continue;
+		 
+		 var type = Math.random()*100;
+		 
+		 if (type<5) type = 3;
+		 else if (type<20) type = 2;
+		 else if (type<50) type = 1;
+		 else if (type<100) type = 0;
+		 
+		 
+		 bricks[i][f]=new Brick(type, i*52+5, f*22+5);
+		 
+		}
+	}
+}
+
+function init(){
+	canvas = document.getElementById("canvas")
+	context = canvas.getContext("2d")
+	genBricks()
+	
+	animate()
+	
+	highscore = getHighscore();
+	document.getElementById('lblHighscore').innerHTML = highscore;
+
+	window.onkeydown = function(event){keydown(event)};
+	window.onkeyup  =  function(event){keyup(event)};
+	
+}
+document.addEventListener("DOMContentLoaded", function(){
+init();
+});
+
+function test(){
+console.log("test");
+}
+
+
+
+function keydown(event){
+
+console.log("key down: "+event.keyCode);
+
+dingInc = 0;
+
+if ((event.keyCode==37 || event.keyCode==39)){
+dingInc = (37==event.keyCode)?-5:5;
+}
+merkKey = event.keyCode;
+}
+
+
+function keyup(event){
+console.log("key down: "+event.keyCode);
+if (merkKey==event.keyCode && (event.keyCode==37 || event.keyCode==39))
+dingInc = 0;
+}
+
+
+
+
+function logObject(obj){
+	for (key in obj){
+		console.log(key+" : "+obj[key]);
+	}
+}
+
+
+
+
+
+
+
+
+function Vector(x,y){return new Object({x:x,y:y})}
+function Gerade(b,r){return new Object({b:b,r:r})}
+
+function Schnittpunkt(gerade1,gerade2){
+var x = gerade2.b.x - gerade1.b.x,
+    y = gerade2.b.y - gerade1.b.y,
+	a1 = gerade1.r.x,
+	a2 = gerade1.r.y,
+	b1 = -gerade2.r.x,
+	b2 = -gerade2.r.y,s,t,ex,ey,faktor;
+if ((a1!=0) && (a2!=0)){
+	faktor = (a1/a2);
+	    a1 = a1 - (a2*faktor);
+	    b1 = b1 - (b2*faktor);
+	     x =  x -  (y*faktor);
+	t = x/b1;	 
+	ex = gerade2.b.x+gerade2.r.x*t;
+	ey = gerade2.b.y+gerade2.r.y*t;
+} else if ((b1!=0) && (b2!=0)){
+	faktor = (b1/b2);
+	    a1 = a1 - (a2*faktor);
+	    b1 = b1 - (b2*faktor);
+	     x =  x -  (y*faktor);
+	s= x/a1;
+	ex = gerade1.b.x+gerade1.r.x*s;
+	ey = gerade1.b.y+gerade1.r.y*s;
+}
+return new Vector(ex,ey);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/*				{
+				allCounter = 0;
+				var geradeBall = Gerade(new Vector(ballPos[0],ballPos[1]),new Vector(ball_x,ball_y)),
+				
+				    geradeBrick1=(Gerade(new Vector(bricks[i][f].x,bricks[i][f].y),new Vector(0,1))), //vertikale Gerade an oberen Linken Ecke
+				    geradeBrick2=(Gerade(new Vector(bricks[i][f].x,bricks[i][f].y),new Vector(1,0))), //horizontale ||   ||   ||   ||     ||
+				    geradeBrick3=(Gerade(new Vector(bricks[i][f].x+50,bricks[i][f].y+20),new Vector(1,0))), //vertikale Gerade an rechter Seite
+				    geradeBrick4=(Gerade(new Vector(bricks[i][f].x+50,bricks[i][f].y+20),new Vector(0,1))), //horizontale untere Gerade
+				
+				    sp1 = Schnittpunkt(geradeBall,geradeBrick1),
+				    sp2 = Schnittpunkt(geradeBall,geradeBrick2),
+				    sp3 = Schnittpunkt(geradeBall,geradeBrick3),
+				    sp4 = Schnittpunkt(geradeBall,geradeBrick4),
+				
+				    sp = minAbstand(new Vector(ballPos[0],ballPos[1]),new Array(sp1,sp2,sp3,sp4));
+				
+				if ( punktEquals(sp1,sp) || punktEquals(sp3,sp) )
+				{
+					ball_y *= -0.9+(Math.random()/5);
+				}
+				if ( punktEquals(sp2,sp) || punktEquals(sp4,sp) )
+				{
+					ball_x *= -0.9+(Math.random()/5);
+				}
+				bricks[i][f] = null;
+				}		*/
+</script>
+
+<style type="text/css">
+	html {
+		font-family:arial, sans-serif;
+	}
+</style>
+</head>
+
+
+<body>
+<div style="text-align:center;width:100%">
+	<div id="scoreboard">
+		<div style="display:inline-block;width:100px;">
+			<span id="lblScore">0</span>
+		</div>
+		<div style="display:inline-block;width:100px;margin-right:100px;font-weight:bold">
+			<span>HIGHSCORE</span><br />
+			<span id="lblHighscore">0</span>
+		</div>
+	</div>
+	<canvas id="canvas" width="530" height="600" style="border:1px solid #000"></canvas>
+</div>
+</body>
+
+</html>
