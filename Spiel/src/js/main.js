@@ -1,7 +1,3 @@
-<html>
-<head>
-<script>
-
 var
  canvas,context,brickList,
  brickWidth  = 50,
@@ -16,16 +12,17 @@ var
  ball_x = 4,
  ball_y = -4,
  bricks = new Array(),
- alwaysHit = false; 
+ alwaysHit = false,
+ punktzahl = 0,
+ highscore = 0;
+ 
  //STRG+F alwaysHit, ist es true, dann zielt der Ball nach dem Aufprall auf das DING auf einen Brick
  //ding ist in dem Spiel immer der Balken unten.
 
-var punktzahl = 0;
-var highscore = 0;
+ //nach MUSTER suchen
 
 
-
-window.requestAnimFrame = (function(callback) {
+window.requestAnimFrame = function() {
         return window.requestAnimationFrame || 
         window.webkitRequestAnimationFrame || 
         window.mozRequestAnimationFrame || 
@@ -34,42 +31,35 @@ window.requestAnimFrame = (function(callback) {
         function(callback) {
           window.setTimeout(callback, 1000 / 60);
         };
-})();
+}();
 
 function animate() {
-
         context.clearRect(0, 0, canvas.width, canvas.height);
-		
-		testCollision()
-	
-		paintBricks()
-		
-		paintDing()
-		
-		paintBall()
-
-		requestAnimFrame(function() {
+		testCollision();
+		paintBricks();
+		paintDing();
+		paintBall();
+		window.requestAnimFrame(function() {
           animate();
         });
-		
 }
 
+
+
+/**
+ * @constructor
+ */
 function Brick (type, x, y){
-var color, punktzahl;
 
 switch (type){
-case 0 : color = "#000"; punktzahl=100;break;
-case 1 : color = "#f00"; punktzahl=200;break;
-case 2 : color = "#0f0"; punktzahl=500;break;
-case 3 : color = "#0ff"; punktzahl=1000;
+case 0 : this.color = "#000"; this.punktzahl=100;break;
+case 1 : this.color = "#f00"; this.punktzahl=200;break;
+case 2 : this.color = "#0f0"; this.punktzahl=500;break;
+case 3 : this.color = "#0ff"; this.punktzahl=1000;
 }
 
-return new Object({
-	color : color,
-	x : x,
-	y : y,
-	punktzahl : punktzahl
-});
+this.x=x;
+this.y=y;
 }
 
 function getAnyBrick(){
@@ -77,8 +67,7 @@ return brickList[Math.floor(Math.random()*brickList.length)];
 }
 
 function paintBall(){
-
-	
+	 
 	var x = ballPos[0],
 	    y = ballPos[1];
 
@@ -125,11 +114,11 @@ function paintBrick(brick){
 	
 	context.beginPath();
 	context.lineWidth=0;
-	context.moveTo(brick.x,brick.y)
-	context.lineTo(brick.x+50,brick.y)
-	context.lineTo(brick.x+50,brick.y+20)
-	context.lineTo(brick.x,brick.y+20)
-	context.lineTo(brick.x,brick.y)
+	context.moveTo(brick.x,brick.y);
+	context.lineTo(brick.x+50,brick.y);
+	context.lineTo(brick.x+50,brick.y+20);
+	context.lineTo(brick.x,brick.y+20);
+	context.lineTo(brick.x,brick.y);
 	context.fillStyle=brick.color;
 	context.stroke();
 	context.fill();
@@ -144,11 +133,11 @@ function paintDing(){
 	var h=dingPos[3];
 	context.beginPath();
 	context.lineWidth=1;
-	context.moveTo(x,y)
-	context.lineTo(x+w,y)
-	context.lineTo(x+w,y+h)
-	context.lineTo(x,y+h)
-	context.lineTo(x,y)
+	context.moveTo(x,y);
+	context.lineTo(x+w,y);
+	context.lineTo(x+w,y+h);
+	context.lineTo(x,y+h);
+	context.lineTo(x,y);
 	context.fillStyle="#000";
 	context.stroke();
 	context.fill();
@@ -183,12 +172,12 @@ var bx,by,cx,cy;
 
 function testCollision(){
 			
-			if ( ball_x<0 )      {bx=ballPos[0]-ballRadius;   by=ballPos[1] }
-			else if ( ball_x>0 ) {bx=ballPos[0]+ballRadius-1; by=ballPos[1] }
-			if ( ball_y<0 )      {cx=ballPos[0]; cy=ballPos[1]-ballRadius+1 }
-			else if ( ball_y>0 ) {cx=ballPos[0]; cy=ballPos[1]+ballRadius-1 }
+			if ( ball_x<0 )      {bx=ballPos[0]-ballRadius;   by=ballPos[1]; }
+			else if ( ball_x>0 ) {bx=ballPos[0]+ballRadius-1; by=ballPos[1]; }
+			if ( ball_y<0 )      {cx=ballPos[0]; cy=ballPos[1]-ballRadius+1; }
+			else if ( ball_y>0 ) {cx=ballPos[0]; cy=ballPos[1]+ballRadius-1; }
 			
-	for (key in brickList){
+	for (var key in brickList){
 			if((brickList[key].x <= bx && bx <= brickList[key].x+50)
 			 &&(brickList[key].y <= by && by <= brickList[key].y+20))
 			{
@@ -227,17 +216,17 @@ function testCollision(){
 
 function setHighscore(punkte) {
 	highscore = punkte;
-	localStorage.setItem('highscore', punkte);
+	window.localStorage.setItem('highscore', punkte);
 	
 	document.getElementById('lblHighscore').innerHTML = punkte;
 }
 
 function getHighscore() {
-	return localStorage.getItem('highscore');
+	return window.localStorage.getItem('highscore');
 }
 
 function punktEquals(punkt1,punkt2){
-return (punkt1.x == punkt2.x && punkt1.y == punkt2.y)
+return (punkt1.x == punkt2.x && punkt1.y == punkt2.y);
 }
 
 function geradeHasPunkt(gerade, punkt){
@@ -248,7 +237,7 @@ function minAbstand(punkt, punktArray){
 	
 	var min = 999999,m;
 	
-	for (key in punktArray){
+	for (var key in punktArray){
 	min = ( (m=abstand(punkt,punktArray[key])) > min ) ? min : m;
 	}
 	
@@ -260,7 +249,7 @@ function minAbstand(punkt, punktArray){
 }
 
 function abstand(punkt1,punkt2){
-return Math.sqrt(  Math.pow((punkt1.x-punkt2.x),2) + Math.pow((punkt1.y-punkt2.y),2) )
+return Math.sqrt(  Math.pow((punkt1.x-punkt2.x),2) + Math.pow((punkt1.y-punkt2.y),2) );
 }
 
 
@@ -301,27 +290,28 @@ brickList = new Array();
 }
 
 function init(){
-	canvas = document.getElementById("canvas")
-	context = canvas.getContext("2d")
-	genBricks()
+	canvas = document.getElementById("canvas");
+	context = canvas.getContext("2d");
+	genBricks();
 	
 	
-	animate()
+	animate();
 	
 	highscore = getHighscore();
 	document.getElementById('lblHighscore').innerHTML = highscore;
-
-	window.onkeydown = function(event){keydown(event)};
-	window.onkeyup  =  function(event){keyup(event)};
 	
+	window.addEventListener("keydown",function(event){keydown(event);},false);
+	window.addEventListener("keyup",function(event){keyup(event);},false);
+
+
 }
 
 document.addEventListener("DOMContentLoaded", function(){
 init();
-});
+},false);
 
 function test(){
-console.log("test");
+window.console.log("test");
 }
 
 
@@ -334,6 +324,7 @@ if ((event.keyCode==37 || event.keyCode==39)){
 dingInc = (37==event.keyCode)?-5:5;
 event.preventDefault();
 event.stopPropagation();
+//window.console.log("keydown");
 }
 merkKey = event.keyCode;
 
@@ -342,7 +333,7 @@ merkKey = event.keyCode;
 
 
 function keyup(event){
-//console.log("key down: "+event.keyCode);
+//window.console.log("key down: "+event.keyCode);
 if (merkKey==event.keyCode && (event.keyCode==37 || event.keyCode==39))
 dingInc = 0;
 }
@@ -351,21 +342,36 @@ dingInc = 0;
 
 
 function logObject(obj){
-	for (key in obj){
-		console.log(key+" : "+obj[key]);
+	for (var key in obj){
+		window.console.log(key+" : "+obj[key]);
 	}
 }
 
 
 
+/**
+ * @constructor
+ */
+function PowerUp(type){
+	return Object({
+		type: type
+	});
+}
 
 
+/**
+ * @constructor
+ */
+function Vector(x,y){return Object({x:x,y:y});}
 
+/**
+ * @constructor
+ */
+function Gerade(b,r){return Object({b:b,r:r});}
 
-
-function Vector(x,y){return new Object({x:x,y:y})}
-function Gerade(b,r){return new Object({b:b,r:r})}
-
+/**
+ * @constructor
+ */
 function Schnittpunkt(gerade1,gerade2){
 var x = gerade2.b.x - gerade1.b.x,
     y = gerade2.b.y - gerade1.b.y,
@@ -392,39 +398,3 @@ if ((a1!=0) && (a2!=0)){
 }
 return new Vector(ex,ey);
 }
-
-
-
-
-
-
-
-
-
-
-</script>
-
-<style type="text/css">
-	html {
-		font-family:arial, sans-serif;
-	}
-</style>
-</head>
-
-
-<body>
-<div style="text-align:center;width:100%">
-	<div id="scoreboard">
-		<div style="display:inline-block;width:100px;">
-			<span id="lblScore">0</span>
-		</div>
-		<div style="display:inline-block;width:100px;margin-right:100px;font-weight:bold">
-			<span>HIGHSCORE</span><br />
-			<span id="lblHighscore">0</span>
-		</div>
-	</div>
-	<canvas id="canvas" width="530" height="600" style="border:1px solid #000"></canvas>
-</div>
-</body>
-
-</html>
