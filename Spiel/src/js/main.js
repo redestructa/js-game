@@ -11,10 +11,14 @@ var
  ballRadius = 10,
  ball_x = 4,
  ball_y = -4,
- bricks = new Array(),
+ bricks = [],
  alwaysHit = false,
  punktzahl = 0,
- highscore = 0;
+ highscore = 0,
+ freezeMode = true,
+ shootMode = true,
+ powerUps = [],
+ shots = [];
  
  //STRG+F alwaysHit, ist es true, dann zielt der Ball nach dem Aufprall auf das DING auf einen Brick
  //ding ist in dem Spiel immer der Balken unten.
@@ -22,8 +26,7 @@ var
  //nach MUSTER suchen
 
 
-window.requestAnimFrame = function() {
-        return window.requestAnimationFrame || 
+window.requestAnimFrame = window.requestAnimationFrame || 
         window.webkitRequestAnimationFrame || 
         window.mozRequestAnimationFrame || 
         window.oRequestAnimationFrame || 
@@ -31,19 +34,38 @@ window.requestAnimFrame = function() {
         function(callback) {
           window.setTimeout(callback, 1000 / 60);
         };
-}();
+
 
 function animate() {
         context.clearRect(0, 0, canvas.width, canvas.height);
 		testCollision();
+		
+		
 		paintBricks();
 		paintDing();
 		paintBall();
+		paintPowerUps();
+		paintShots();
+		
 		window.requestAnimFrame(function() {
           animate();
         });
 }
 
+
+
+/**
+ * @constructor
+ */
+function PowerUp(x,y){
+
+var arrP = [100,500,1000],
+	rand = Math.floor(Math.random()*arrP.length);
+this.x=x;	
+this.y=y;	
+this.punktzahl = arrP[rand];
+this.type      = rand;
+}
 
 
 /**
@@ -56,6 +78,9 @@ case 0 : this.color = "#000"; this.punktzahl=100;break;
 case 1 : this.color = "#f00"; this.punktzahl=200;break;
 case 2 : this.color = "#0f0"; this.punktzahl=500;break;
 case 3 : this.color = "#0ff"; this.punktzahl=1000;
+
+if (Math.random() >=0.5) this.powerUp=new PowerUp(x+25,y+10);
+
 }
 
 this.x=x;
@@ -66,29 +91,107 @@ function getAnyBrick(){
 return brickList[Math.floor(Math.random()*brickList.length)];
 }
 
+function cleanUpPowerUps(){
+	for (var key in powerUps){
+		if (powerUps[key].y>canvas.height+100){
+			powerUps[key] = powerUps[powerUps.length-1];
+			powerUps.pop();
+			cleanUpPowerUps();
+			break;
+		}
+	}
+}
+
+function cleanUpShots(){
+	for (var key in shots){
+		if (shots[key]==null || shots[key]==undefined || shots[key].y<-100){
+			shots[key] = shots[shots.length-1];
+			shots.pop();
+			cleanUpShots();
+			break;
+		}
+	}
+}
+
+function paintPowerUps(){
+	cleanUpPowerUps();
+	for (var key in powerUps){
+		paintPowerUp(powerUps[key]);
+	}
+}
+
+function paintShots(){
+	cleanUpShots();
+	for (var key in shots){
+		paintShot(shots[key]);
+	}
+}
+
+function paintPowerUp(powerUp){
+
+	var r=5;
+	context.beginPath();
+	switch (powerUp.type){
+	
+		case 0: r=5; context.fillStyle="#fac"; break;
+		case 1: r=15; context.fillStyle="#0a0"; break;
+		case 2: r=25; context.fillStyle="#1ca";
+		
+	}	
+	
+	context.arc(powerUp.x,powerUp.y,r,0,Math.PI*2,true);
+	context.closePath();
+	context.fill();
+	
+	powerUp.y+=5;
+
+}
+
+function paintShot(shot){
+
+	
+	context.beginPath();
+	
+	context.arc(shot.x,shot.y,2,0,Math.PI*2,true);
+	context.closePath();
+	context.fill();
+	
+	shot.y-=5;
+
+}
+
 function paintBall(){
 	 
 	var x = ballPos[0],
 	    y = ballPos[1];
 
+	//BALLCOLLISIONS
 	if ((x+ballRadius)>=canvas.width) ball_x*=-1;
 	else if ((x-ballRadius)<=0) ball_x*=-1;
-	if (((y+ballRadius)>=dingPos[1] 
-		&& (y+ballRadius)<=(dingPos[1]+5) 
-		&& x>=dingPos[0] 
-		&& x<=dingPos[0]+dingPos[2])){
-		if (alwaysHit){
-		
+	else if (	y+ballRadius   >=dingPos[1] 
+				&& y+ballRadius<=dingPos[1]+dingPos[3] 
+				&& x           >=dingPos[0] 
+				&& x           <=dingPos[0]+dingPos[2]	){
 
-		var anyBrick = getAnyBrick(),
-			richtung1 = (anyBrick.x+25) - ballPos[0],
-		    richtung2 = (anyBrick.y+10) - ballPos[1];
+				if (alwaysHit){
+
+					var anyBrick = getAnyBrick(),
+						richtung1 = (anyBrick.x+25) - ballPos[0],
+						richtung2 = (anyBrick.y+10) - ballPos[1];
+							
+					ball_y = -richtung2/richtung2*5;
+					ball_x = -richtung1/richtung2*5;
 				
-		ball_y = -richtung2/richtung2*5;
-		ball_x = -richtung1/richtung2*5;
-		
-		}
-		else ball_y*=-1;
+				}
+				else if (freezeMode){
+
+					ball_y=0;
+					ball_x=0;
+				
+				}
+				
+				else ball_y*=-1;
+				
 		}
 	else if ((y-ballRadius)<=0) ball_y*=-1;
 	else if ((y+ballRadius) >= canvas.height){
@@ -98,13 +201,13 @@ function paintBall(){
 	ball_y*=-1;
 	}
 	
-	
 	context.beginPath();
 	context.fillStyle="#3a8";
 	context.arc(x,y,ballRadius,0,Math.PI*2,true);
 	context.closePath();
 	context.fill();
 
+	//BALLANIMATIONS
 	ballPos[0]+=ball_x;
 	ballPos[1]+=ball_y;
 		
@@ -126,11 +229,15 @@ function paintBrick(brick){
 }
 
 function paintDing(){
+	var offsetBall = ballPos[0]-dingPos[0];
+	
 	dingPos[0]+=2*dingInc;
 	var x=dingPos[0];
 	var y=dingPos[1];
 	var w=dingPos[2];
 	var h=dingPos[3];
+	if (freezeMode && ball_x==0 && ball_y==0)
+	ballPos[0] = x +offsetBall;
 	context.beginPath();
 	context.lineWidth=1;
 	context.moveTo(x,y);
@@ -178,20 +285,38 @@ function testCollision(){
 			else if ( ball_y>0 ) {cx=ballPos[0]; cy=ballPos[1]+ballRadius-1; }
 			
 	for (var key in brickList){
+			var shotCollision = false;
+			
+			for (var i = 0; shots[i]!=undefined; i++){
+					if (	shots[i].y<=brickList[key].y+20 &&
+							shots[i].y>=brickList[key].y 	&&
+							shots[i].x>=brickList[key].x 	&&
+							shots[i].x<=brickList[key].x+50		)
+						{
+								shots[i]=shots[shots.length-1];
+								shots.pop();
+								brickList[key] = brickList[brickList.length-1];
+								brickList.pop();
+								shotCollision = true;
+						}
+			}
+			if (shotCollision) continue;
+		
+	
 			if((brickList[key].x <= bx && bx <= brickList[key].x+50)
 			 &&(brickList[key].y <= by && by <= brickList[key].y+20))
 			{
-			 ball_x*= -0.9-(Math.random()/5);
-			
+			 ball_x*= -0.8-(Math.random()/2.5);
 			}
 			else if((brickList[key].x <= cx && cx <= brickList[key].x+50)
 			 &&(brickList[key].y <= cy && cy <= brickList[key].y+20))
 			{
-			 ball_y*= -0.9-(Math.random()/5);
+			 ball_y*= -0.8-(Math.random()/2.5);
 			}
 			else continue;
 			//bei continue überspringt er folgenden teil, also wenn keine kollision gefunden, ansonsten...:
-			 
+			
+				ball_x = (Math.abs(ball_x)<2.5) ? ((ball_x >= 0) ? 2.5 : -2.5) : ball_x;
 				punktzahl += brickList[key].punktzahl;
 				document.getElementById('lblScore').innerHTML = punktzahl;
 				
@@ -201,6 +326,8 @@ function testCollision(){
 				
 				//brickList updaten
 				//das getroffene element wird mit dem letzten überschrieben
+				if (brickList[key].powerUp)
+				powerUps.push(brickList[key].powerUp);
 				brickList[key] = brickList[brickList.length-1];
 				brickList.pop();
 				//das letzte element kann nun gelöscht werden
@@ -256,7 +383,7 @@ return Math.sqrt(  Math.pow((punkt1.x-punkt2.x),2) + Math.pow((punkt1.y-punkt2.y
 
 function genBricks(){
 	
-brickList = new Array();
+brickList = [];
 
 	for (var i = 0; i< 50; i++){
 		
@@ -314,6 +441,17 @@ function test(){
 window.console.log("test");
 }
 
+/**
+ * @constructor
+ */
+function Shot(x,y){
+	this.x=x;
+	this.y=y;
+}
+
+function shoot(){
+shots.push(new Shot(dingPos[0]+dingPos[2]/2,dingPos[1]+dingPos[3]/2));
+}
 
 
 function keydown(event){
@@ -324,10 +462,25 @@ if ((event.keyCode==37 || event.keyCode==39)){
 dingInc = (37==event.keyCode)?-5:5;
 event.preventDefault();
 event.stopPropagation();
-//window.console.log("keydown");
-}
-merkKey = event.keyCode;
 
+merkKey = event.keyCode;
+} else if (event.keyCode==32){
+
+	if (freezeMode){
+	ball_y = 5;freezeMode=false;
+	}
+	if (shootMode){
+	shoot();
+	}
+
+}
+
+
+
+
+
+
+window.console.log("keydown: "+event.keyCode);
 
 }
 
@@ -347,16 +500,6 @@ function logObject(obj){
 	}
 }
 
-
-
-/**
- * @constructor
- */
-function PowerUp(type){
-	return Object({
-		type: type
-	});
-}
 
 
 /**
