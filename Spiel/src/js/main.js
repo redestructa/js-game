@@ -2,10 +2,13 @@ var
  canvas,context,brickList,
  brickWidth  = 50,
  brickHeight = 20,
+ currentLevel = 1,
+ levelComplete = false,
  marginX = 2,
  marginY = 2,
  dingInc=0,
- dingPos=new Array(50,500,100,20),
+ dingPos=[50,500,100,20],
+ dingCollided=3,
  merkKey,
  ballPos=new Array(100,400),
  ballRadius = 10,
@@ -15,15 +18,41 @@ var
  alwaysHit = false,
  punktzahl = 0,
  highscore = 0,
- freezeMode = true,
- shootMode = true,
+ animCount = 0,
+ freezeMode = 5,
+ ammo = 10,
+ fireMode = false,
  powerUps = [],
- shots = [];
+ shots = [],
+ xNullCounter=0;
  
  //STRG+F alwaysHit, ist es true, dann zielt der Ball nach dem Aufprall auf das DING auf einen Brick
  //ding ist in dem Spiel immer der Balken unten.
 
- //nach MUSTER suchen
+ // nach MUSTER suchen
+
+function endLevel() {
+	setBallBeginPos();
+	setDingBeginPos();
+	freezeMode = 0;
+	ammo = 0;
+	fireMode = false;
+	dingCollided = 3;
+	ball_x = 0;
+	ball_y = 0;
+	powerUps = [];
+	shots = [];
+	bricks = [];
+	currentLevel++;
+}
+
+function beginNextLevel(){
+	levelComplete=false;
+	ball_y=-4;
+	ball_x=4;
+	genBricks(currentLevel);
+	xNullCounter=0;
+}
 
 
 window.requestAnimFrame = window.requestAnimationFrame || 
@@ -37,9 +66,13 @@ window.requestAnimFrame = window.requestAnimationFrame ||
 
 
 function animate() {
+		animCount = (animCount+1 == 1000) ? 0 : animCount+1;
+		if (dingCollided<3){dingCollided++;}
         context.clearRect(0, 0, canvas.width, canvas.height);
 		testCollision();
+		shoot();
 		
+		testLevelComplete();
 		
 		paintBricks();
 		paintDing();
@@ -51,6 +84,7 @@ function animate() {
           animate();
         });
 }
+
 
 
 
@@ -67,6 +101,15 @@ this.punktzahl = arrP[rand];
 this.type      = rand;
 }
 
+function turnBallY(){
+	 ball_y*= -0.8-(Math.random()/2.5);
+}
+
+
+function turnBallX(){
+	ball_x*= -0.8-(Math.random()/2.5);
+}
+
 
 /**
  * @constructor
@@ -76,10 +119,12 @@ function Brick (type, x, y){
 switch (type){
 case 0 : this.color = "#000"; this.punktzahl=100;break;
 case 1 : this.color = "#f00"; this.punktzahl=200;break;
-case 2 : this.color = "#0f0"; this.punktzahl=500;break;
+case 2 : this.color = "#0f0"; this.punktzahl=500;
+		 if (Math.random() >=0.5) this.powerUp=new PowerUp(x+25,y+10);
+	  	 break;
 case 3 : this.color = "#0ff"; this.punktzahl=1000;
 
-if (Math.random() >=0.5) this.powerUp=new PowerUp(x+25,y+10);
+
 
 }
 
@@ -92,23 +137,19 @@ return brickList[Math.floor(Math.random()*brickList.length)];
 }
 
 function cleanUpPowerUps(){
-	for (var key in powerUps){
+	for (var key =0;key< powerUps.length;key++){
 		if (powerUps[key].y>canvas.height+100){
 			powerUps[key] = powerUps[powerUps.length-1];
 			powerUps.pop();
-			cleanUpPowerUps();
-			break;
 		}
 	}
 }
 
 function cleanUpShots(){
-	for (var key in shots){
+	for (var key =0;key< shots.length;key++){
 		if (shots[key]==null || shots[key]==undefined || shots[key].y<-100){
 			shots[key] = shots[shots.length-1];
 			shots.pop();
-			cleanUpShots();
-			break;
 		}
 	}
 }
@@ -127,13 +168,20 @@ function paintShots(){
 	}
 }
 
+function testLevelComplete(){
+	if (brickList.length ==0 && levelComplete===false){
+		levelComplete = true;
+		endLevel();
+	}
+}
+
 function paintPowerUp(powerUp){
 
-	var r=5;
+	var r;
 	context.beginPath();
 	switch (powerUp.type){
 	
-		case 0: r=5; context.fillStyle="#fac"; break;
+		case 0: r=5;  context.fillStyle="#fac"; break;
 		case 1: r=15; context.fillStyle="#0a0"; break;
 		case 2: r=25; context.fillStyle="#1ca";
 		
@@ -161,17 +209,29 @@ function paintShot(shot){
 }
 
 function paintBall(){
+	
 	 
 	var x = ballPos[0],
 	    y = ballPos[1];
 
 	//BALLCOLLISIONS
+	
 	if ((x+ballRadius)>=canvas.width) ball_x*=-1;
 	else if ((x-ballRadius)<=0) ball_x*=-1;
 	else if (	y+ballRadius   >=dingPos[1] 
 				&& y+ballRadius<=dingPos[1]+dingPos[3] 
 				&& x           >=dingPos[0] 
-				&& x           <=dingPos[0]+dingPos[2]	){
+				&& x           <=dingPos[0]+dingPos[2]	
+				&& dingCollided==3					){
+				//DING COLLIDES
+		
+				dingCollided = 0;
+				
+				if (ball_x==0 && xNullCounter++ == 2){
+					ball_x= ((Math.random()>=0.5) ? -1 : 1) * 4;
+					xNullCounter=0;
+				}
+				
 
 				if (alwaysHit){
 
@@ -183,22 +243,22 @@ function paintBall(){
 					ball_x = -richtung1/richtung2*5;
 				
 				}
-				else if (freezeMode){
+				else if (freezeMode>0){
 
 					ball_y=0;
 					ball_x=0;
+					
 				
 				}
 				
-				else ball_y*=-1;
+				else turnBallY();
 				
 		}
 	else if ((y-ballRadius)<=0) ball_y*=-1;
 	else if ((y+ballRadius) >= canvas.height){
-	ballPos[0]=50;
-	ballPos[1]=400;
-	ball_x*=-1;
-	ball_y*=-1;
+		setBallBeginPos();
+		ball_x*=-1;
+		ball_y*=-1;
 	}
 	
 	context.beginPath();
@@ -208,9 +268,24 @@ function paintBall(){
 	context.fill();
 
 	//BALLANIMATIONS
-	ballPos[0]+=ball_x;
-	ballPos[1]+=ball_y;
+
+		ballPos[0]+=ball_x;
+		ballPos[1]+=ball_y;	
+
+	
 		
+}
+
+function setBallBeginPos() {
+	ballPos[0] = 100;
+	ballPos[1] = 400;
+}
+
+function setDingBeginPos() {
+	dingPos[0] = 50;
+	dingPos[1] = 500;
+	dingPos[2] = 100;
+	dingPos[3] = 20;
 }
 
 function paintBrick(brick){
@@ -229,15 +304,19 @@ function paintBrick(brick){
 }
 
 function paintDing(){
+	
 	var offsetBall = ballPos[0]-dingPos[0];
 	
 	dingPos[0]+=2*dingInc;
+	
 	var x=dingPos[0];
 	var y=dingPos[1];
 	var w=dingPos[2];
 	var h=dingPos[3];
-	if (freezeMode && ball_x==0 && ball_y==0)
+	
+	if (freezeMode>0 && ball_x==0 && ball_y==0)
 	ballPos[0] = x +offsetBall;
+	
 	context.beginPath();
 	context.lineWidth=1;
 	context.moveTo(x,y);
@@ -284,60 +363,53 @@ function testCollision(){
 			if ( ball_y<0 )      {cx=ballPos[0]; cy=ballPos[1]-ballRadius+1; }
 			else if ( ball_y>0 ) {cx=ballPos[0]; cy=ballPos[1]+ballRadius-1; }
 			
-	for (var key in brickList){
-			var shotCollision = false;
+	for (var key=0; key<brickList.length; key++){
 			
-			for (var i = 0; shots[i]!=undefined; i++){
-					if (	shots[i].y<=brickList[key].y+20 &&
+			for (var i = 0; i<shots.length; i++){
+					if (    shots[i].y<=brickList[key].y+20 &&
 							shots[i].y>=brickList[key].y 	&&
 							shots[i].x>=brickList[key].x 	&&
 							shots[i].x<=brickList[key].x+50		)
 						{
 								shots[i]=shots[shots.length-1];
 								shots.pop();
-								brickList[key] = brickList[brickList.length-1];
-								brickList.pop();
-								shotCollision = true;
+								treffe(key);
+								break;
 						}
 			}
-			if (shotCollision) continue;
-		
-	
-			if((brickList[key].x <= bx && bx <= brickList[key].x+50)
+			
+			if (!brickList[key]) continue; 
+			else if((brickList[key].x <= bx && bx <= brickList[key].x+50)
 			 &&(brickList[key].y <= by && by <= brickList[key].y+20))
 			{
-			 ball_x*= -0.8-(Math.random()/2.5);
+			 turnBallX();
 			}
 			else if((brickList[key].x <= cx && cx <= brickList[key].x+50)
 			 &&(brickList[key].y <= cy && cy <= brickList[key].y+20))
 			{
-			 ball_y*= -0.8-(Math.random()/2.5);
+			 turnBallY();
 			}
 			else continue;
 			//bei continue überspringt er folgenden teil, also wenn keine kollision gefunden, ansonsten...:
-			
 				ball_x = (Math.abs(ball_x)<2.5) ? ((ball_x >= 0) ? 2.5 : -2.5) : ball_x;
-				punktzahl += brickList[key].punktzahl;
-				document.getElementById('lblScore').innerHTML = punktzahl;
-				
-				if(punktzahl > highscore)
-					setHighscore(punktzahl);
-				
-				
-				//brickList updaten
-				//das getroffene element wird mit dem letzten überschrieben
-				if (brickList[key].powerUp)
-				powerUps.push(brickList[key].powerUp);
-				brickList[key] = brickList[brickList.length-1];
-				brickList.pop();
-				//das letzte element kann nun gelöscht werden
-				//so bleibt die liste konsistent und die länge wird aktualisiert
-				
-				
-				
+				treffe(key);
 				break;
-			
 			}
+}
+
+function treffe(key){
+	if (brickList[key].powerUp)
+		powerUps.push(brickList[key].powerUp);
+		punktzahl += brickList[key].punktzahl;
+		if(punktzahl > highscore)
+			setHighscore(punktzahl);
+		document.getElementById('lblScore').innerHTML = punktzahl;
+		//brickList updaten
+		//das getroffene element wird mit dem letzten überschrieben
+		brickList[key] = brickList[brickList.length-1];
+		brickList.pop();
+		//das letzte element kann nun gelöscht werden
+		//so bleibt die liste konsistent und die länge wird aktualisiert
 }
 
 
@@ -381,56 +453,57 @@ return Math.sqrt(  Math.pow((punkt1.x-punkt2.x),2) + Math.pow((punkt1.y-punkt2.y
 
 
 
-function genBricks(){
+function genBricks(level) {
 	
-brickList = [];
+	
 
-	for (var i = 0; i< 50; i++){
-		
-		 var type = Math.random()*100,
-		 
-		 //MUSTER 1
-		 //x=Math.floor(i/5),
-		 //y=i%5;
-		 
-		 //MUSTER 2
-		 //x=Math.floor(i/5),
-		 //y=2*(i%5) + (x%2);
-		 
-		 //MUSTER 3
-		 //x=2*Math.floor(i/10)+0.5,
-		 //y=i%10;
-		 
-		 //MUSTER 4
-		 x=Math.floor(i/5),
-		 y=2*(i%5)+0.5*(x%10);
-		 
-		 
-		 if (type<5) type = 3;
-		 else if (type<15) type = 2;
-		 else if (type<35) type = 1;
-		 else if (type<100) type = 0;
-		 
-		 brickList[i]=new Brick(type, x*52+5, y*22+5);
-		 
+	brickList = [];
+
+	for ( var i = 0; i < 50; i++) {
+
+		var type = Math.random() * 100, x, y;
+
+		switch (level) {
+		case 1:
+			x = Math.floor(i / 5); y = i % 5;
+			break;
+		case 2:
+			x = Math.floor(i / 5); y = 2 * (i % 5) + (x % 2);
+			break;
+		case 3:
+			x = 2 * Math.floor(i / 10) + 0.5; y = i % 10;
+			break;
+		case 4:
+			x = Math.floor(i / 5); y = 2 * (i % 5) + 0.5 * (x % 10);
+			break;
+		}
+
+		if (type < 5)
+			type = 3;
+		else if (type < 15)
+			type = 2;
+		else if (type < 35)
+			type = 1;
+		else if (type < 100)
+			type = 0;
+
+		brickList[i] = new Brick(type, x * 52 + 5, y * 22 + 5);
+
 	}
 }
 
 function init(){
 	canvas = document.getElementById("canvas");
 	context = canvas.getContext("2d");
-	genBricks();
 	
+	
+	genBricks(currentLevel);
 	
 	animate();
-	
 	highscore = getHighscore();
 	document.getElementById('lblHighscore').innerHTML = highscore;
-	
 	window.addEventListener("keydown",function(event){keydown(event);},false);
 	window.addEventListener("keyup",function(event){keyup(event);},false);
-
-
 }
 
 document.addEventListener("DOMContentLoaded", function(){
@@ -438,74 +511,80 @@ init();
 },false);
 
 function test(){
-window.console.log("test");
+//window.console.log("test");
 }
 
 /**
  * @constructor
  */
-function Shot(x,y){
+function Shot(x, y) {
+	this.x = x;
+	this.y = y;
+}
+
+function shoot() {
+	if (ammo > 0 && fireMode && animCount % 10 == 0) {
+		shots.push(new Shot(dingPos[0] + dingPos[2] / 2, dingPos[1]
+				+ dingPos[3] / 2));
+		ammo--;
+	}
+}
+
+function keydown(event) {
+
+	if ((event.keyCode == 37 || event.keyCode == 39)) {
+		dingInc = (37 == event.keyCode) ? -5 : 5;
+		event.preventDefault();
+		event.stopPropagation();
+
+		merkKey = event.keyCode;
+	} else if (event.keyCode == 32) {
+
+		if (levelComplete) {
+
+			beginNextLevel();
+
+		} else if (freezeMode > 0 && ball_y == 0 && ball_x == 0) {
+			ball_y = -5;
+			dingCollided = 0;
+			freezeMode--;
+		}
+		if (ammo > 0 && fireMode == false) {
+			animCount = -1;
+			fireMode = true;
+		}
+
+	}
+ 
+	//window.console.log("keydown: "+event.keyCode);
+
+}
+
+function keyup(event) {
+	// window.console.log("key down: "+event.keyCode);
+	if (merkKey == event.keyCode
+			&& (event.keyCode == 37 || event.keyCode == 39))
+		dingInc = 0;
+
+	if (fireMode & event.keyCode == 32) {
+		fireMode = false;
+	}
+
+}
+
+function logObject(obj) {
+	for ( var key in obj) {
+		// window.console.log(key+" : "+obj[key]);
+	}
+}
+
+/**
+ * @constructor
+ */
+function Vector(x, y) {
 	this.x=x;
 	this.y=y;
 }
-
-function shoot(){
-shots.push(new Shot(dingPos[0]+dingPos[2]/2,dingPos[1]+dingPos[3]/2));
-}
-
-
-function keydown(event){
-
-dingInc = 0;
-
-if ((event.keyCode==37 || event.keyCode==39)){
-dingInc = (37==event.keyCode)?-5:5;
-event.preventDefault();
-event.stopPropagation();
-
-merkKey = event.keyCode;
-} else if (event.keyCode==32){
-
-	if (freezeMode){
-	ball_y = 5;freezeMode=false;
-	}
-	if (shootMode){
-	shoot();
-	}
-
-}
-
-
-
-
-
-
-window.console.log("keydown: "+event.keyCode);
-
-}
-
-
-function keyup(event){
-//window.console.log("key down: "+event.keyCode);
-if (merkKey==event.keyCode && (event.keyCode==37 || event.keyCode==39))
-dingInc = 0;
-}
-
-
-
-
-function logObject(obj){
-	for (var key in obj){
-		window.console.log(key+" : "+obj[key]);
-	}
-}
-
-
-
-/**
- * @constructor
- */
-function Vector(x,y){return Object({x:x,y:y});}
 
 /**
  * @constructor
